@@ -1,7 +1,7 @@
 # timbre — Field Recorder & Audio Studio
 
 > **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
-> **Demo Video:** `[Add your Loom/Drive link here]`  
+> **Demo Video:** **[https://youtu.be/ecTUnFGKZMY](https://youtu.be/ecTUnFGKZMY)**  
 > **Submission Branch:** `main` (synced with the invited interview repository)
 
 A high-fidelity full-stack audio application built with **Elixir/Phoenix API + React + Rust/WASM**.
