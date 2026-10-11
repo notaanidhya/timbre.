@@ -6,6 +6,14 @@ Designed with the **“Field Recorder”** aesthetic: tactile, printed field not
 
 ---
 
+## 🚀 Live Demo & Deliverables
+
+- **Live Application:** [https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)
+- **Demo Video:** `[Add your Loom/Drive link here if recorded]`
+- **Submission Branch:** `main` (pushed to the invited private repository)
+
+---
+
 ## Architecture Overview
 
 ```
