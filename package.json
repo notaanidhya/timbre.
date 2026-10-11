@@ -1,0 +1,13 @@
+{
+  "name": "timbre",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node api/dev_server.mjs",
+    "build": "cd web && npm install"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "ws": "^8.18.2"
+  }
+}

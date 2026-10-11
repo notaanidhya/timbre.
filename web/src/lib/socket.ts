@@ -43,9 +43,15 @@ export class PhoenixSessionManager {
 
   public connect(participantName: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const socketUrl =
-        import.meta.env.VITE_WS_URL || `${protocol}//${window.location.host}${this.sessionEndpoint}`
+      let socketUrl = import.meta.env.VITE_WS_URL
+      if (!socketUrl && import.meta.env.VITE_API_URL) {
+        const apiUrl = import.meta.env.VITE_API_URL.replace(/^http/, 'ws').replace(/\/$/, '')
+        socketUrl = `${apiUrl}${this.sessionEndpoint}`
+      }
+      if (!socketUrl) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        socketUrl = `${protocol}//${window.location.host}${this.sessionEndpoint}`
+      }
 
       this.socket = new Socket(socketUrl, {
         params: { participant: participantName },

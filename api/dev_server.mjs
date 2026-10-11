@@ -4,9 +4,16 @@ import path from 'node:path'
 import url from 'node:url'
 import { createRequire } from 'node:module'
 
-const require = createRequire(path.resolve('web/package.json'))
-const Busboy = require('busboy')
-const { WebSocketServer } = require('ws')
+let Busboy, WebSocketServer
+try {
+  const req = createRequire(import.meta.url)
+  Busboy = req('busboy')
+  WebSocketServer = req('ws').WebSocketServer
+} catch {
+  const req = createRequire(path.resolve('web/package.json'))
+  Busboy = req('busboy')
+  WebSocketServer = req('ws').WebSocketServer
+}
 
 const PORT = parseInt(process.env.PORT || '4010', 10)
 const ROOT_DIR = path.resolve('.')
