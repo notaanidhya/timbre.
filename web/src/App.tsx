@@ -1,54 +1,106 @@
 import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-// The default export loads the .wasm; the named export is our Rust fn.
 import init, { rms_level } from 'timbre_kit'
-// The assignment brief, rendered at /. Lives at the repo root; ?raw inlines it.
-import assignment from '../../ASSIGNMENT.md?raw'
+import { API_BASE } from './lib/api'
+import { Header } from './components/Header'
+import { RecorderPage } from './pages/RecorderPage'
+import { SessionPage } from './pages/SessionPage'
 
 export default function App() {
-  const [wasmOk, setWasmOk] = useState(false)
-  const [apiOk, setApiOk] = useState(false)
+  const [activeTab, setActiveTab] = useState<'studio' | 'multiplayer'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.has('room') || window.location.hash === '#multiplayer') {
+        return 'multiplayer'
+      }
+    }
+    return 'studio'
+  })
+  const [wasmReady, setWasmReady] = useState(false)
+  const [apiReady, setApiReady] = useState(false)
+  const [wsConnected, setWsConnected] = useState(false)
 
-  // Boot WASM and confirm it runs (RMS of a full-scale signal ≈ 1).
+  // Verify WASM init
   useEffect(() => {
     init()
-      .then(() => setWasmOk(rms_level(new Float32Array([1, -1, 1, -1])) > 0.99))
-      .catch(() => setWasmOk(false))
+      .then(() => {
+        const testSignal = new Float32Array([1, -1, 1, -1])
+        setWasmReady(rms_level(testSignal) > 0.99)
+      })
+      .catch(() => setWasmReady(false))
   }, [])
 
-  // Reach the Phoenix API through the dev proxy.
+  // Check Phoenix API health
   useEffect(() => {
-    fetch('/api/hello')
-      .then((r) => setApiOk(r.ok))
-      .catch(() => setApiOk(false))
+    const checkApi = () => {
+      fetch(`${API_BASE}/healthz`)
+        .then((res) => setApiReady(res.ok))
+        .catch(() => setApiReady(false))
+    }
+    checkApi()
+    const interval = setInterval(checkApi, 10000)
+    return () => clearInterval(interval)
   }, [])
 
-  const Dot = ({ ok, label }: { ok: boolean; label: string }) => (
-    <span className="inline-flex items-center gap-1.5 text-xs text-mute">
-      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-link' : 'bg-hairline-strong'}`} />
-      {label}
-    </span>
-  )
+  // Listen for browser back/forward or hash changes to sync tabs
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search)
+      if (params.has('room') || window.location.hash === '#multiplayer') {
+        setActiveTab('multiplayer')
+      }
+    }
+    window.addEventListener('popstate', handleUrlChange)
+    window.addEventListener('hashchange', handleUrlChange)
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange)
+      window.removeEventListener('hashchange', handleUrlChange)
+    }
+  }, [])
+
+  const handleSelectTab = (tab: 'studio' | 'multiplayer') => {
+    setActiveTab(tab)
+    if (tab === 'multiplayer') {
+      const params = new URLSearchParams(window.location.search)
+      if (!params.has('room')) {
+        window.location.hash = '#multiplayer'
+      }
+    } else {
+      if (window.location.hash === '#multiplayer') {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-10 border-b border-hairline bg-canvas/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
-          <span className="font-semibold tracking-tight text-ink">timbre</span>
-          <div className="flex items-center gap-4">
-            <Dot ok={wasmOk} label="WASM" />
-            <Dot ok={apiOk} label="API" />
-          </div>
-        </div>
-      </header>
+    <div className="relative min-h-screen bg-paper text-ink selection:bg-clay/20 selection:text-ink font-sans">
+      {/* Paper grain overlay SVG with feTurbulence */}
+      <svg className="paper-grain" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noiseFilter">
+          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noiseFilter)" />
+      </svg>
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <article
-          className="prose prose-neutral max-w-none dark:prose-invert prose-headings:text-ink prose-a:text-link prose-code:before:content-none prose-code:after:content-none"
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{assignment}</ReactMarkdown>
-        </article>
+      {/* Main Field Recorder Header */}
+      <Header
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        wasmReady={wasmReady}
+        apiReady={apiReady}
+        wsConnected={wsConnected}
+      />
+
+      {/* Main Page Area - keep both pages mounted so room & websocket state are preserved */}
+      <main className="relative z-10 pb-20">
+        <div style={{ display: activeTab === 'studio' ? 'block' : 'none' }}>
+          <RecorderPage />
+        </div>
+        <div style={{ display: activeTab === 'multiplayer' ? 'block' : 'none' }}>
+          <SessionPage
+            onOpenVoiceStudio={() => handleSelectTab('studio')}
+            onWsStateChange={setWsConnected}
+          />
+        </div>
       </main>
     </div>
   )

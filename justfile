@@ -47,6 +47,10 @@ dev:
 api:
     cd api && iex -S mix phx.server
 
+# Companion Node dev API on :4010 (for Windows / environments without Elixir installed).
+api-node:
+    node api/dev_server.mjs
+
 # Web dev server only, on http://localhost:5173 (proxies /api -> :4010).
 web:
     cd web && npm run dev

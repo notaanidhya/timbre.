@@ -1,0 +1,12 @@
+{
+  "name": "timbre_kit",
+  "version": "0.1.0",
+  "files": [
+    "timbre_kit_bg.wasm",
+    "timbre_kit.js",
+    "timbre_kit.d.ts"
+  ],
+  "main": "timbre_kit.js",
+  "types": "timbre_kit.d.ts",
+  "sideEffects": ["./timbre_kit.js", "./snippets/*"]
+}

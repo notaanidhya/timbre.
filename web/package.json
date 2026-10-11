@@ -6,12 +6,20 @@
   "scripts": {
     "build:wasm": "wasm-pack build crates/timbre_kit --target web --out-dir pkg",
     "dev": "vite",
-    "build": "npm run build:wasm && tsc -b && vite build",
+    "dev:api": "node ../api/dev_server.mjs",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@fontsource/hanken-grotesk": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/typography": "^0.5.20",
+    "@types/phoenix": "^1.6.7",
+    "motion": "^14.1.0",
+    "phoenix": "^1.8.15",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
@@ -20,13 +28,17 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.17",
+    "@types/busboy": "^1.5.5",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^5.1.1",
+    "busboy": "^1.6.0",
     "tailwindcss": "^4.1.17",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vite-plugin-top-level-await": "^1.6.0",
-    "vite-plugin-wasm": "^3.5.0"
+    "vite-plugin-wasm": "^3.5.0",
+    "ws": "^8.22.0"
   }
 }

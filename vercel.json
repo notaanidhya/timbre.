@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd web && npm install && npx vite build",
+  "outputDirectory": "web/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

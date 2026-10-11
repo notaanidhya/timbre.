@@ -12,6 +12,8 @@ defmodule Timbre.Application do
       Timbre.Repo,
       {DNSCluster, query: Application.get_env(:timbre, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Timbre.PubSub},
+      {Task.Supervisor, name: Timbre.TranscriptionSupervisor},
+      Timbre.Sessions,
       # Start a worker by calling: Timbre.Worker.start_link(arg)
       # {Timbre.Worker, arg},
       # Start to serve requests, typically the last entry

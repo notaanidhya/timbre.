@@ -1,0 +1,26 @@
+app = "timbre"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PHX_HOST = "timbre.fly.dev"
+  PORT = "4010"
+  DATABASE_PATH = "/data/timbre.db"
+
+[http_service]
+  internal_port = 4010
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "timbre_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

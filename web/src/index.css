@@ -1,43 +1,92 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-/* Vercel / Geist palette — black-and-white precision. Light by default; the
-   dark block below flips the same tokens so utilities (bg-canvas, text-ink, …)
-   follow the system theme automatically. */
-@theme {
-  --color-canvas: #ffffff;
-  --color-canvas-soft: #fafafa;
-  --color-ink: #171717;
-  --color-body: #4d4d4d;
-  --color-mute: #888888;
-  --color-hairline: #ebebeb;
-  --color-hairline-strong: #a1a1a1;
-  --color-link: #0070f3;
+@import '@fontsource/instrument-serif/index.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+@import '@fontsource/hanken-grotesk/index.css';
+@import '@fontsource/jetbrains-mono/index.css';
 
-  --font-sans: Geist, Inter, system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+@theme {
+  --color-paper: #F6F0DD;
+  --color-sheet: #FCF8EA;
+  --color-paper-2: #ECE3CB;
+  --color-rule: #D8CDAE;
+  --color-ink: #263027;
+  --color-ink-2: #566050;
+  --color-ink-3: #8A907C;
+  --color-moss: #5F6F52;
+  --color-sage: #A9B388;
+  --color-clay: #D98B63;
+  --color-clay-deep: #B96A45;
+  --color-dusk: #748DA6;
+  --color-mist: #D3CEDF;
+  --color-rose: #F2D7D9;
+  --color-brick: #A6402F;
+
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-canvas: #000000;
-    --color-canvas-soft: #0a0a0a;
-    --color-ink: #ededed;
-    --color-body: #a1a1a1;
-    --color-mute: #8f8f8f;
-    --color-hairline: #2e2e2e;
-    --color-hairline-strong: #454545;
-    --color-link: #3291ff;
-  }
+  color-scheme: light;
 }
 
 body {
-  background-color: var(--color-canvas);
-  color: var(--color-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Paper grain overlay */
+.paper-grain {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  z-index: 999;
+}
+
+/* Dot grid for tape recorder module */
+.dot-grid {
+  background-image: radial-gradient(circle, #D8CDAE 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Flat offset panel shadow */
+.panel-shadow {
+  box-shadow: 4px 4px 0 var(--color-rule);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.panel-shadow:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--color-rule);
+}
+
+.btn-press {
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+.btn-press:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--color-rule);
+}
+
+/* Mono tabular numbers for timers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus ring standard */
+:focus-visible {
+  outline: 2px solid var(--color-dusk);
+  outline-offset: 2px;
 }

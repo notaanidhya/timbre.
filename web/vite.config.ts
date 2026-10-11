@@ -18,6 +18,7 @@ export default defineConfig({
     proxy: {
       '/api': { target: 'http://localhost:4010', changeOrigin: true },
       '/healthz': { target: 'http://localhost:4010', changeOrigin: true },
+      '/socket': { target: 'http://localhost:4010', changeOrigin: true, ws: true },
     },
   },
 })

@@ -11,9 +11,9 @@ defmodule TimbreWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  # socket "/live", Phoenix.LiveView.Socket,
-  #   websocket: [connect_info: [session: @session_options]],
-  #   longpoll: [connect_info: [session: @session_options]]
+  socket "/socket", TimbreWeb.UserSocket,
+    websocket: [connect_info: [session: @session_options]],
+    longpoll: false
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -36,14 +36,33 @@ defmodule TimbreWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug :cors_headers
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    length: 200_000_000
 
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
   plug TimbreWeb.Router
+
+  defp cors_headers(conn, _opts) do
+    origin = Plug.Conn.get_req_header(conn, "origin") |> List.first() || "*"
+
+    conn =
+      conn
+      |> Plug.Conn.put_resp_header("access-control-allow-origin", origin)
+      |> Plug.Conn.put_resp_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS")
+      |> Plug.Conn.put_resp_header("access-control-allow-headers", "content-type, authorization, accept, origin")
+      |> Plug.Conn.put_resp_header("access-control-allow-credentials", "true")
+
+    if conn.method == "OPTIONS" do
+      conn |> Plug.Conn.send_resp(204, "") |> Plug.Conn.halt()
+    else
+      conn
+    end
+  end
 end
