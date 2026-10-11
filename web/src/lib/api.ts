@@ -16,6 +16,7 @@ export interface RecordingItemData {
   sample_rate: number | null
   session_id: string | null
   participant: string | null
+  client_id?: string | null
   inserted_at: string
   updated_at: string
 }
@@ -27,12 +28,35 @@ const isStaticVercelHost =
   window.location.hostname.endsWith('vercel.app') &&
   !API_BASE
 
+/**
+ * Returns a stable, anonymous device/client UUID stored in localStorage.
+ * Isolates each visitor's audio studio library so recordings are personal.
+ */
+export function getClientId(): string {
+  if (typeof window === 'undefined') return ''
+  let id = localStorage.getItem('timbre_client_id')
+  if (!id) {
+    id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `client_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`
+    localStorage.setItem('timbre_client_id', id)
+  }
+  return id
+}
+
 export async function fetchRecordings(): Promise<RecordingItemData[]> {
   let serverRecordings: RecordingItemData[] = []
+  const clientId = getClientId()
 
   if (!isStaticVercelHost) {
     try {
-      const res = await fetch(`${API_BASE}/api/recordings`)
+      const url = `${API_BASE}/api/recordings?client_id=${encodeURIComponent(clientId)}`
+      const res = await fetch(url, {
+        headers: {
+          'X-Client-Id': clientId,
+        },
+      })
       if (res.ok) {
         const data = await res.json()
         serverRecordings = data.recordings || []
@@ -42,20 +66,23 @@ export async function fetchRecordings(): Promise<RecordingItemData[]> {
     }
   }
 
-  // Load client-side IndexedDB recordings
+  // Load client-side IndexedDB recordings (filtered for this client)
   const localRecords = await idbGetAllRecordings()
-  const localAsItems: RecordingItemData[] = localRecords.map((r) => ({
-    id: r.id,
-    title: r.title,
-    duration_ms: r.duration_ms,
-    size_bytes: r.size_bytes,
-    content_type: r.content_type,
-    sample_rate: r.sample_rate,
-    session_id: r.session_id,
-    participant: r.participant,
-    inserted_at: r.inserted_at,
-    updated_at: r.updated_at,
-  }))
+  const localAsItems: RecordingItemData[] = localRecords
+    .filter((r) => !r.client_id || r.client_id === clientId)
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      duration_ms: r.duration_ms,
+      size_bytes: r.size_bytes,
+      content_type: r.content_type,
+      sample_rate: r.sample_rate,
+      session_id: r.session_id,
+      participant: r.participant,
+      client_id: r.client_id,
+      inserted_at: r.inserted_at,
+      updated_at: r.updated_at,
+    }))
 
   // Merge server + local recordings without duplicates
   const serverIds = new Set(serverRecordings.map((r) => r.id))
@@ -72,11 +99,19 @@ export async function fetchRecordings(): Promise<RecordingItemData[]> {
 }
 
 export async function uploadRecording(formData: FormData): Promise<{ id: number; title: string }> {
+  const clientId = getClientId()
+  if (!formData.has('client_id')) {
+    formData.append('client_id', clientId)
+  }
+
   // If remote or local API is configured, try server upload
   if (!isStaticVercelHost) {
     try {
       const res = await fetch(`${API_BASE}/api/recordings`, {
         method: 'POST',
+        headers: {
+          'X-Client-Id': clientId,
+        },
         body: formData,
       })
       if (res.ok) {
@@ -108,6 +143,7 @@ export async function uploadRecording(formData: FormData): Promise<{ id: number;
     sample_rate: sampleRate,
     session_id: null,
     participant: null,
+    client_id: clientId,
     inserted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   })
@@ -117,9 +153,15 @@ export async function uploadRecording(formData: FormData): Promise<{ id: number;
 
 export async function deleteRecording(id: number): Promise<void> {
   await idbDeleteRecording(id)
+  const clientId = getClientId()
   if (!isStaticVercelHost) {
     try {
-      await fetch(`${API_BASE}/api/recordings/${id}`, { method: 'DELETE' })
+      await fetch(`${API_BASE}/api/recordings/${id}?client_id=${encodeURIComponent(clientId)}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Client-Id': clientId,
+        },
+      })
     } catch {}
   }
 }

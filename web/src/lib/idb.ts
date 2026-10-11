@@ -10,6 +10,7 @@ export interface StoredRecording {
   sample_rate: number | null
   session_id: string | null
   participant: string | null
+  client_id?: string | null
   inserted_at: string
   updated_at: string
   blob: Blob

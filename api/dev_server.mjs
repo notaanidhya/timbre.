@@ -123,7 +123,7 @@ const server = http.createServer((req, res) => {
   // Add permissive CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, X-Client-Id, x-client-id')
   res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Disposition')
 
   if (req.method === 'OPTIONS') {
@@ -146,9 +146,24 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // 2. GET /api/recordings - List recordings
+  // 2. GET /api/recordings - List recordings (scoped by client_id)
   if (req.method === 'GET' && pathname === '/api/recordings') {
-    const recordings = loadRecordings()
+    const clientId =
+      req.headers['x-client-id'] ||
+      (parsedUrl.query && parsedUrl.query.client_id) ||
+      null
+
+    const allRecordings = loadRecordings()
+
+    // When client_id is provided, strictly isolate recordings to this device/browser
+    const recordings = clientId
+      ? allRecordings.filter((r) => {
+          if (r.client_id === clientId) return true
+          if (Array.isArray(r.client_ids) && r.client_ids.includes(clientId)) return true
+          return false
+        })
+      : allRecordings
+
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ recordings }))
     return
@@ -192,9 +207,11 @@ const server = http.createServer((req, res) => {
         const durationMs = fields.duration_ms ? parseInt(fields.duration_ms, 10) : null
         const sampleRate = fields.sample_rate ? parseInt(fields.sample_rate, 10) : 48000
         const sizeBytes = fileBuffer.length
+        const clientId = fields.client_id || req.headers['x-client-id'] || null
 
         const newRecording = {
           id,
+          client_id: clientId,
           title: fields.title || `Recording ${now.slice(0, 10)}`,
           duration_ms: durationMs,
           size_bytes: sizeBytes,
@@ -294,19 +311,32 @@ const server = http.createServer((req, res) => {
   const deleteMatch = pathname.match(/^\/api\/recordings\/(\d+)$/)
   if (req.method === 'DELETE' && deleteMatch) {
     const id = parseInt(deleteMatch[1], 10)
+    const clientId =
+      req.headers['x-client-id'] ||
+      (parsedUrl.query && parsedUrl.query.client_id) ||
+      null
+
     const recordings = loadRecordings()
     const index = recordings.findIndex((r) => r.id === id)
 
     if (index !== -1) {
       const recording = recordings[index]
-      const filePath = path.join(RECORDINGS_DIR, recording.filename)
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath)
-        } catch {}
+      const canDelete =
+        !clientId ||
+        !recording.client_id ||
+        recording.client_id === clientId ||
+        (Array.isArray(recording.client_ids) && recording.client_ids.includes(clientId))
+
+      if (canDelete) {
+        const filePath = path.join(RECORDINGS_DIR, recording.filename)
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath)
+          } catch {}
+        }
+        recordings.splice(index, 1)
+        saveRecordings(recordings)
       }
-      recordings.splice(index, 1)
-      saveRecordings(recordings)
     }
 
     res.writeHead(204)
@@ -490,6 +520,7 @@ server.on('upgrade', (req, socket, head) => {
 wss.on('connection', (ws, req) => {
   const parsedUrl = url.parse(req.url, true)
   const participantName = parsedUrl.query?.participant || 'Anonymous'
+  const clientWsId = parsedUrl.query?.client_id || null
   let currentTopic = null
   let currentRoom = null
 
@@ -515,6 +546,7 @@ wss.on('connection', (ws, req) => {
 
         currentRoom.participants.set(initialTrack, {
           ws,
+          clientId: clientWsId || payload?.client_id || null,
           participant: participantName,
           track: initialTrack,
           chunks: [],
@@ -562,6 +594,7 @@ wss.on('connection', (ws, req) => {
         if (trackName) {
           currentRoom.participants.set(trackName, {
             ws,
+            clientId: clientWsId || payload?.client_id || null,
             participant: participantName,
             track: trackName,
             chunks: [],
@@ -806,8 +839,16 @@ wss.on('connection', (ws, req) => {
         fs.writeFileSync(path.join(RECORDINGS_DIR, filename), wavBuffer)
 
         const title = `Session Merge ${currentRoom.id.toUpperCase()} (${now.slice(0, 10)})`
+        const clientIds = new Set()
+        if (clientWsId) clientIds.add(clientWsId)
+        for (const [, p] of currentRoom.participants) {
+          if (p.clientId) clientIds.add(p.clientId)
+        }
+
         const newRecording = {
           id,
+          client_id: clientWsId || (clientIds.size > 0 ? Array.from(clientIds)[0] : null),
+          client_ids: Array.from(clientIds),
           title,
           duration_ms: durationMs,
           size_bytes: wavBuffer.length,

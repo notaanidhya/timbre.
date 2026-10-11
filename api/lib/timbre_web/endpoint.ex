@@ -56,7 +56,7 @@ defmodule TimbreWeb.Endpoint do
       conn
       |> Plug.Conn.put_resp_header("access-control-allow-origin", origin)
       |> Plug.Conn.put_resp_header("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS")
-      |> Plug.Conn.put_resp_header("access-control-allow-headers", "content-type, authorization, accept, origin")
+      |> Plug.Conn.put_resp_header("access-control-allow-headers", "content-type, authorization, accept, origin, x-client-id")
       |> Plug.Conn.put_resp_header("access-control-allow-credentials", "true")
 
     if conn.method == "OPTIONS" do

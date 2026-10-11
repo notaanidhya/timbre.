@@ -10,9 +10,10 @@ defmodule Timbre.Recordings do
 
   @doc """
   Returns the list of recordings without loading the large binary blob.
+  Optionally filtered by client_id.
   """
-  def list_recordings do
-    Repo.all(
+  def list_recordings(client_id \\ nil) do
+    query =
       from r in Recording,
         select: %{
           id: r.id,
@@ -23,11 +24,21 @@ defmodule Timbre.Recordings do
           sample_rate: r.sample_rate,
           session_id: r.session_id,
           participant: r.participant,
+          client_id: r.client_id,
           inserted_at: r.inserted_at,
           updated_at: r.updated_at
         },
         order_by: [desc: r.inserted_at]
-    )
+
+    query =
+      case client_id do
+        cid when is_binary(cid) and cid != "" ->
+          from r in query, where: r.client_id == ^cid
+        _ ->
+          query
+      end
+
+    Repo.all(query)
   end
 
   @doc """

@@ -6,7 +6,14 @@ defmodule TimbreWeb.UserSocket do
   @impl true
   def connect(params, socket, _connect_info) do
     participant = Map.get(params, "participant") || "Anonymous"
-    {:ok, assign(socket, :participant, participant)}
+    client_id = Map.get(params, "client_id")
+
+    socket =
+      socket
+      |> assign(:participant, participant)
+      |> assign(:client_id, client_id)
+
+    {:ok, socket}
   end
 
   @impl true

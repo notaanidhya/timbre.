@@ -3,8 +3,12 @@ defmodule TimbreWeb.RecordingsController do
 
   alias Timbre.Recordings
 
-  def index(conn, _params) do
-    recordings = Recordings.list_recordings()
+  def index(conn, params) do
+    client_id =
+      Plug.Conn.get_req_header(conn, "x-client-id") |> List.first() ||
+        params["client_id"]
+
+    recordings = Recordings.list_recordings(client_id)
     json(conn, %{recordings: recordings})
   end
 
@@ -26,6 +30,9 @@ defmodule TimbreWeb.RecordingsController do
     duration_ms = parse_int(params["duration_ms"])
     sample_rate = parse_int(params["sample_rate"])
     size_bytes = if blob, do: byte_size(blob), else: nil
+    client_id =
+      Plug.Conn.get_req_header(conn, "x-client-id") |> List.first() ||
+        params["client_id"]
 
     attrs = %{
       title: title,
@@ -35,7 +42,8 @@ defmodule TimbreWeb.RecordingsController do
       size_bytes: size_bytes,
       sample_rate: sample_rate,
       session_id: params["session_id"],
-      participant: params["participant"]
+      participant: params["participant"],
+      client_id: client_id
     }
 
     case Recordings.create_recording(attrs) do

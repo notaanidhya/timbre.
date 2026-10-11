@@ -1,4 +1,5 @@
 import { Socket, Channel } from 'phoenix'
+import { getClientId } from './api'
 
 export interface ParticipantInfo {
   name: string
@@ -54,7 +55,10 @@ export class PhoenixSessionManager {
       }
 
       this.socket = new Socket(socketUrl, {
-        params: { participant: participantName },
+        params: {
+          participant: participantName,
+          client_id: getClientId(),
+        },
       })
 
       this.socket.onOpen(() => {

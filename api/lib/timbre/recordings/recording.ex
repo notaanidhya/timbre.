@@ -11,6 +11,7 @@ defmodule Timbre.Recordings.Recording do
     field :sample_rate, :integer
     field :session_id, :string
     field :participant, :string
+    field :client_id, :string
 
     has_one :transcript, Timbre.Recordings.Transcript
 
@@ -28,7 +29,8 @@ defmodule Timbre.Recordings.Recording do
       :blob,
       :sample_rate,
       :session_id,
-      :participant
+      :participant,
+      :client_id
     ])
     |> validate_required([:content_type, :blob])
     |> validate_length(:title, max: 200)
