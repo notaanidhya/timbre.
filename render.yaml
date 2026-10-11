@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: timbre-api
+    runtime: node
+    plan: free
+    buildCommand: cd web && npm install
+    startCommand: node api/dev_server.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: GEMINI_API_KEY
+        sync: false
