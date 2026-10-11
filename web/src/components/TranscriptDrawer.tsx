@@ -136,18 +136,39 @@ export const TranscriptDrawer: React.FC<TranscriptDrawerProps> = ({ recordingId 
 
       {/* State 3: Error */}
       {status === 'error' && (
-        <div className="rounded-[3px] border border-brick/40 bg-rose p-4 text-xs font-mono text-brick flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <WarningCircle size={18} weight="bold" />
-            <span>Transcription error: {data?.error || 'Unknown failure'}</span>
+        <div className="rounded-[3px] border border-brick/40 bg-rose p-4 text-xs font-mono text-brick flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <WarningCircle size={18} weight="bold" className="shrink-0" />
+              <span>{data?.error || 'Transcription failed'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleStartTranscribe}
+              className="flex items-center gap-1 text-ink underline font-bold hover:text-brick shrink-0"
+            >
+              <ArrowClockwise size={14} /> Try again
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleStartTranscribe}
-            className="flex items-center gap-1 text-ink underline font-bold hover:text-brick"
-          >
-            <ArrowClockwise size={14} /> Try again
-          </button>
+
+          {data?.error?.includes('GEMINI_API_KEY') && (
+            <div className="flex items-center gap-2 pt-2 border-t border-brick/20">
+              <input
+                type="password"
+                placeholder="Paste Gemini API Key here"
+                defaultValue={localStorage.getItem('timbre_gemini_api_key') || ''}
+                onChange={(e) => localStorage.setItem('timbre_gemini_api_key', e.target.value.trim())}
+                className="flex-1 bg-paper px-2 py-1 text-xs border border-rule text-ink rounded-xs font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleStartTranscribe}
+                className="bg-clay text-paper px-3 py-1 rounded-xs font-sans text-xs font-medium hover:bg-clay-deep shrink-0 btn-press"
+              >
+                Save & Transcribe
+              </button>
+            </div>
+          )}
         </div>
       )}
 

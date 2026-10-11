@@ -69,13 +69,13 @@ export const Header: React.FC<HeaderProps> = ({
 
           <span className="text-rule">|</span>
 
-          <div className="flex items-center gap-1.5" title={apiReady ? 'Phoenix API connected (:4010)' : 'API unreachable'}>
+          <div className="flex items-center gap-1.5" title={apiReady ? 'Phoenix API connected' : 'Local browser storage active'}>
             <span
               className={`h-1.5 w-1.5 transition-all duration-150 ${
-                apiReady ? 'bg-moss' : 'bg-brick'
+                apiReady ? 'bg-moss' : 'bg-sage'
               }`}
             />
-            <span className="hidden md:inline">API · {apiReady ? 'ready' : 'offline'}</span>
+            <span className="hidden md:inline">{apiReady ? 'API · ready' : 'STORAGE · local'}</span>
           </div>
 
           <span className="text-rule">|</span>
