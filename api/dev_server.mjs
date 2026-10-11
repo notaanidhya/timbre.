@@ -633,6 +633,28 @@ wss.on('connection', (ws, req) => {
           if (!currentRoom.firstStartTs) currentRoom.firstStartTs = pData.startTs
           const buf = Buffer.from(payload.chunk, 'base64')
           pData.chunks.push(buf)
+
+          // Broadcast session_state update to all peers so chronological timeline stays in sync
+          const participantsList = Array.from(currentRoom.participants.entries()).map(([name, data]) => ({
+            name,
+            chunks_count: data.chunks.length,
+            done: data.done,
+            start_ts: data.startTs,
+          }))
+
+          for (const [, peer] of currentRoom.participants) {
+            if (peer.ws.readyState === 1) {
+              peer.ws.send(
+                JSON.stringify([
+                  null,
+                  null,
+                  topic,
+                  'session_state',
+                  { session_id: currentRoom.id, participants: participantsList },
+                ])
+              )
+            }
+          }
         }
         return
       }
@@ -674,15 +696,35 @@ wss.on('connection', (ws, req) => {
             )
           }
         }
+
+        // Broadcast session_state update
+        const participantsList = Array.from(currentRoom.participants.entries()).map(([name, data]) => ({
+          name,
+          chunks_count: data.chunks.length,
+          done: data.done,
+          start_ts: data.startTs,
+        }))
+
+        for (const [, peer] of currentRoom.participants) {
+          if (peer.ws.readyState === 1) {
+            peer.ws.send(
+              JSON.stringify([
+                null,
+                null,
+                topic,
+                'session_state',
+                { session_id: currentRoom.id, participants: participantsList },
+              ])
+            )
+          }
+        }
         return
       }
 
       // Handle merge_now
       if (event === 'merge_now') {
         const pEntries = Array.from(currentRoom.participants.entries())
-        const firstStart = currentRoom.firstStartTs || Date.now()
-        const tracks = []
-        let maxSamples = 0
+        const validTracks = []
 
         for (const [pName, data] of pEntries) {
           if (!data.chunks || data.chunks.length === 0) continue
@@ -695,37 +737,54 @@ wss.on('connection', (ws, req) => {
             int16Samples[i] = fullBuf.readInt16LE(i * 2)
           }
 
-          // Relative delay from the earliest participant's start time
-          let delayMs = Math.max(0, (data.startTs || firstStart) - firstStart)
-          // If delay is more than 4s (e.g. overdub / second take pass), align to 0 so layers sync cleanly
-          if (delayMs > 4000) {
-            delayMs = 0
-          }
-          const offsetSamples = Math.floor((delayMs * 48000) / 1000)
-          tracks.push({ name: pName, samples: int16Samples, offset: offsetSamples })
+          validTracks.push({
+            name: pName,
+            startTs: data.startTs || 0,
+            samples: int16Samples,
+            durationMs: Math.round((sampleCount / 48000) * 1000),
+          })
+        }
 
-          if (offsetSamples + sampleCount > maxSamples) {
-            maxSamples = offsetSamples + sampleCount
+        // Sort chronologically by recording start time so takes are arranged in sequence
+        validTracks.sort((a, b) => (a.startTs || 0) - (b.startTs || 0))
+
+        // Place tracks sequentially: each person's take follows the previous one (no overlapping!)
+        // Add a 250ms conversational breath gap between takes
+        const PAUSE_SAMPLES = Math.floor(0.25 * 48000)
+        let currentOffset = 0
+        const segments = []
+
+        for (let idx = 0; idx < validTracks.length; idx++) {
+          const track = validTracks[idx]
+          track.offset = currentOffset
+
+          const startMs = Math.round((currentOffset / 48000) * 1000)
+          const endMs = startMs + track.durationMs
+
+          segments.push({
+            name: track.name,
+            start_ms: startMs,
+            end_ms: endMs,
+            duration_ms: track.durationMs,
+          })
+
+          currentOffset += track.samples.length
+          if (idx < validTracks.length - 1) {
+            currentOffset += PAUSE_SAMPLES
           }
         }
 
-        if (maxSamples === 0) maxSamples = 48000 // 1s fallback
+        const totalSamples = Math.max(48000, currentOffset)
+        const mixed = new Int16Array(totalSamples)
 
-        const mixed = new Int16Array(maxSamples)
-        for (let i = 0; i < maxSamples; i++) {
-          let sum = 0
-          for (const track of tracks) {
-            const trackIdx = i - track.offset
-            if (trackIdx >= 0 && trackIdx < track.samples.length) {
-              sum += track.samples[trackIdx]
-            }
+        for (const track of validTracks) {
+          for (let i = 0; i < track.samples.length; i++) {
+            mixed[track.offset + i] = track.samples[i]
           }
-          // Clamp to Int16 limits [-32768, 32767]
-          mixed[i] = Math.max(-32768, Math.min(32767, Math.round(sum)))
         }
 
         const wavBuffer = encodeWav(mixed, 48000, 1)
-        const durationMs = Math.round((maxSamples / 48000) * 1000)
+        const durationMs = Math.round((totalSamples / 48000) * 1000)
         const recordings = loadRecordings()
         const id = recordings.length > 0 ? Math.max(...recordings.map((r) => r.id || 0)) + 1 : 1
         const now = new Date().toISOString()
@@ -757,7 +816,7 @@ wss.on('connection', (ws, req) => {
         recordings.unshift(newRecording)
         saveRecordings(recordings)
 
-        // Broadcast merge_complete
+        // Broadcast merge_complete with segments metadata
         for (const [, pInfo] of currentRoom.participants) {
           if (pInfo.ws.readyState === 1) {
             pInfo.ws.send(
@@ -766,7 +825,7 @@ wss.on('connection', (ws, req) => {
                 null,
                 topic,
                 'merge_complete',
-                { recording_id: id, title, duration_ms: durationMs },
+                { recording_id: id, title, duration_ms: durationMs, segments },
               ])
             )
           }

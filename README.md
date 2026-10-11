@@ -1,8 +1,8 @@
 # timbre — Field Recorder & Audio Studio
 
-> 🎙️ **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
-> 📹 **Demo Video:** `[Add your Loom/Drive link here]`  
-> 🌿 **Submission Branch:** `main` (synced with the invited interview repository)
+> **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
+> **Demo Video:** `[Add your Loom/Drive link here]`  
+> **Submission Branch:** `main` (synced with the invited interview repository)
 
 A high-fidelity full-stack audio application built with **Elixir/Phoenix API + React + Rust/WASM**.
 
@@ -10,15 +10,15 @@ Designed with the **“Field Recorder”** aesthetic: tactile, printed field not
 
 ---
 
-## 📋 Deliverables Summary
+## Deliverables Summary
 
 | Deliverable | Status | Description |
 |---|---|---|
-| **Part 1: Record & Save** | ✅ Complete | In-browser mic capture, cross-browser codec negotiation, waveform playback, persistent storage |
-| **Part 2: WASM DSP Effects** | ✅ Complete | Rust crate `timbre_kit` with 5 DSP filters, A/B buffer comparison, 16-bit WAV encoder |
-| **Part 3: Multiplayer Studio** | ✅ Complete | Phoenix Channels WebSockets, LED VU meters, Multi-Take overdub layering, master take WAV mixer |
-| **Bonus: AI Transcription** | ✅ Complete | Google Gemini 3.8 Flash multimodal audio transcription + stamped title & executive summary |
-| **Deployment** | ✅ Complete | Live on Vercel with IndexedDB client-side fallback + Dockerfile / Render / Fly.io backend support |
+| **Part 1: Record & Save** | Complete | In-browser mic capture, cross-browser codec negotiation, waveform playback, persistent storage |
+| **Part 2: WASM DSP Effects** | Complete | Rust crate `timbre_kit` with 5 DSP filters, A/B buffer comparison, 16-bit WAV encoder |
+| **Part 3: Multiplayer Studio** | Complete | Phoenix Channels WebSockets, LED VU meters, Multi-Take overdub layering, master take WAV mixer |
+| **Bonus: AI Transcription** | Complete | Google Gemini 3.8 Flash multimodal audio transcription + stamped title & executive summary |
+| **Deployment** | Complete | Live on Vercel with IndexedDB client-side fallback + Dockerfile / Render / Fly.io backend support |
 
 ---
 

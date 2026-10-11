@@ -179,34 +179,20 @@ defmodule Timbre.Sessions do
     if Enum.empty?(valid_streams) do
       {:error, :empty_audio_streams}
     else
-      # 2. Timing alignment: calculate delay relative to the earliest participant
-      min_ts = valid_streams |> Enum.map(& &1.start_ts) |> Enum.min()
+      # 2. Sequential timeline assembly: Sort chronologically by recording start time
+      # so each person's take is placed one after another without overlapping voices
+      sorted_streams = Enum.sort_by(valid_streams, fn s -> s.start_ts || 0 end)
 
-      aligned_tracks =
-        Enum.map(valid_streams, fn s ->
-          raw_delay_ms = max(0, s.start_ts - min_ts)
-          # If delay is > 4000ms (e.g. overdub / second take pass), align to 0 so layers sync cleanly
-          delay_ms = if raw_delay_ms > 4_000, do: 0, else: raw_delay_ms
-          pad_samples_count = round(delay_ms * @sample_rate / 1000)
-          List.duplicate(0.0, pad_samples_count) ++ s.samples
-        end)
+      pause_samples = List.duplicate(0.0, round(0.25 * @sample_rate))
 
-      # 3. Sum and mix overlapping tracks with sample-level clamping
-      max_len = aligned_tracks |> Enum.map(&length/1) |> Enum.max()
-
-      # Mix into final float list
-      track_count = length(aligned_tracks)
+      # Concatenate streams with conversational pause between them
       mixed_samples =
-        for i <- 0..(max_len - 1) do
-          sum =
-            Enum.reduce(aligned_tracks, 0.0, fn track, acc ->
-              acc + (Enum.at(track, i) || 0.0)
-            end)
+        sorted_streams
+        |> Enum.map(& &1.samples)
+        |> Enum.intersperse(pause_samples)
+        |> List.flatten()
 
-          # Normalize slightly for multiple voices while clamping to [-1.0, 1.0]
-          normalized = if track_count > 1, do: sum * 0.85, else: sum
-          max(-1.0, min(1.0, normalized))
-        end
+      max_len = length(mixed_samples)
 
       # 4. Encode to 16-bit PCM WAV
       wav_blob = WavEncoder.encode(mixed_samples, @sample_rate, 1)

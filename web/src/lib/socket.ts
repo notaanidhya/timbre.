@@ -17,10 +17,18 @@ export interface PeerLevelPayload {
   level: number
 }
 
+export interface TimelineSegment {
+  name: string
+  start_ms: number
+  end_ms: number
+  duration_ms: number
+}
+
 export interface MergeCompletePayload {
   recording_id: number
   title: string
   duration_ms: number
+  segments?: TimelineSegment[]
 }
 
 export class PhoenixSessionManager {

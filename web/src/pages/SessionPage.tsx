@@ -15,6 +15,7 @@ import {
   PhoenixSessionManager,
   ParticipantInfo,
   MergeCompletePayload,
+  TimelineSegment,
 } from '../lib/socket'
 import { getAudioUrl } from '../lib/api'
 
@@ -25,6 +26,12 @@ interface SessionPageProps {
 
 const BORDER_COLORS = ['border-t-sage', 'border-t-dusk', 'border-t-clay', 'border-t-mist']
 const AVATAR_BG = ['bg-mist', 'bg-rose']
+const SEGMENT_COLORS = [
+  'bg-clay text-paper',
+  'bg-dusk text-paper',
+  'bg-sage text-paper',
+  'bg-moss text-paper',
+]
 
 export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onWsStateChange }) => {
   // Lobby State
@@ -51,6 +58,7 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
   const [isMerging, setIsMerging] = useState<boolean>(false)
   const [mergedResult, setMergedResult] = useState<MergeCompletePayload | null>(null)
   const [isPlayingMerged, setIsPlayingMerged] = useState<boolean>(false)
+  const [playbackTimeMs, setPlaybackTimeMs] = useState<number>(0)
 
   // Audio & Socket Refs
   const sessionManagerRef = useRef<PhoenixSessionManager | null>(null)
@@ -334,6 +342,7 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
     setPeerLevels({})
     setMergedResult(null)
     setSessionSeconds(0)
+    setPlaybackTimeMs(0)
 
     const url = new URL(window.location.href)
     url.searchParams.delete('room')
@@ -355,6 +364,49 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
     const s = sec % 60
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
+
+  const formatMs = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000)
+    const m = Math.floor(totalSec / 60)
+    const s = totalSec % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  // Segments for merged timeline visualization
+  const displaySegments: TimelineSegment[] =
+    mergedResult?.segments && mergedResult.segments.length > 0
+      ? mergedResult.segments
+      : mergedResult
+      ? [
+          {
+            name: 'Full Mix',
+            start_ms: 0,
+            end_ms: mergedResult.duration_ms || 1000,
+            duration_ms: mergedResult.duration_ms || 1000,
+          },
+        ]
+      : []
+
+  const currentSpeakerSegment =
+    displaySegments.find(
+      (seg) => playbackTimeMs >= seg.start_ms && playbackTimeMs < seg.end_ms
+    ) || (displaySegments.length > 0 ? displaySegments[displaySegments.length - 1] : null)
+
+  const handleSeekToSegment = (seg: TimelineSegment) => {
+    if (mergedAudioRef.current) {
+      mergedAudioRef.current.currentTime = seg.start_ms / 1000
+      setPlaybackTimeMs(seg.start_ms)
+      if (!isPlayingMerged) {
+        mergedAudioRef.current.play()
+        setIsPlayingMerged(true)
+      }
+    }
+  }
+
+  // Chronologically ordered takes for session timeline ribbon
+  const timelineOrderedParticipants = [...participants].sort(
+    (a, b) => (a.start_ts || 0) - (b.start_ts || 0)
+  )
 
   // =========================================================================
   // VIEW 1: LOBBY
@@ -471,6 +523,97 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
             Leave room
           </button>
         </div>
+      </div>
+
+      {/* Master Timeline Sequence Ribbon (Visual line indicating whose take is placed where) */}
+      <div className="rounded-[3px] border border-rule bg-sheet p-5 panel-shadow">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-rule">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-clay uppercase tracking-widest font-semibold">
+                TIMELINE SEQUENCE
+              </span>
+              <span className="text-rule">·</span>
+              <span className="font-mono text-[11px] text-ink-3">
+                Sequential / Non-overlapping Speech Order
+              </span>
+            </div>
+            <h3 className="font-display text-lg text-ink mt-0.5">Room conversation arrangement</h3>
+          </div>
+          <div className="font-mono text-[11px] text-ink-3 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-sage inline-block" />
+            <span>Takes ordered chronologically by speech entry</span>
+          </div>
+        </div>
+
+        {timelineOrderedParticipants.length === 0 ? (
+          <div className="py-6 text-center font-mono text-xs text-ink-3">
+            Waiting for participants to join or record takes…
+          </div>
+        ) : (
+          <div className="mt-4">
+            <div className="text-[11px] font-mono text-ink-3 mb-2 flex items-center justify-between">
+              <span>SEQUENCE ORDER ({timelineOrderedParticipants.length} {timelineOrderedParticipants.length === 1 ? 'take' : 'takes'})</span>
+              <span>Plays left-to-right in master mix</span>
+            </div>
+
+            {/* Horizontal Sequence Ribbon with connecting arrows */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1">
+              {timelineOrderedParticipants.map((p, idx) => {
+                const isYou = p.name === displayName.trim() || p.name.startsWith(`${displayName.trim()} (Take `)
+                const isActiveTake = p.name === activeTrackName
+                const level = peerLevels[p.name] || 0
+                const isSpeaking = level > 0.05
+                const colorClass = SEGMENT_COLORS[idx % SEGMENT_COLORS.length]
+
+                return (
+                  <React.Fragment key={p.name}>
+                    <div
+                      className={`flex-shrink-0 flex items-center gap-2.5 rounded-[3px] border px-3.5 py-2.5 transition-all ${
+                        isSpeaking
+                          ? 'border-clay bg-paper-2 ring-1 ring-clay/40 shadow-xs'
+                          : isActiveTake
+                          ? 'border-clay/60 bg-paper-2'
+                          : 'border-rule bg-paper'
+                      }`}
+                    >
+                      {/* Badge #N */}
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-xs text-[10px] font-mono font-bold ${colorClass}`}>
+                        #{idx + 1}
+                      </span>
+
+                      <div>
+                        <div className="flex items-center gap-1.5 font-sans text-xs font-medium text-ink">
+                          <span className="truncate max-w-[140px]">{p.name}</span>
+                          {isYou && (
+                            <span className="text-[10px] font-mono text-ink-3 font-normal">(you)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 font-mono text-[10px] text-ink-3 mt-0.5">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              p.done ? 'bg-moss' : isSpeaking ? 'bg-clay animate-ping' : 'bg-sage'
+                            }`}
+                          />
+                          <span className="uppercase">
+                            {p.done ? 'Finished' : isSpeaking ? 'Speaking' : isActiveTake ? 'Active Slot' : 'Ready'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow connector between takes */}
+                    {idx < timelineOrderedParticipants.length - 1 && (
+                      <div className="flex-shrink-0 flex items-center text-ink-3 px-1 select-none">
+                        <span className="font-mono text-xs text-rule">──▶</span>
+                      </div>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Participant Grid */}
@@ -715,17 +858,113 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
             </span>
             <h4 className="font-display text-2xl text-ink mt-1">{mergedResult.title}</h4>
             <p className="font-mono text-xs text-ink-2 mt-1">
-              Length: {Math.round(mergedResult.duration_ms / 1000)}s · Format: 16-bit 48kHz WAV
+              Length: {Math.round(mergedResult.duration_ms / 1000)}s · Format: 16-bit 48kHz WAV · Non-overlapping conversation mix
             </p>
 
-            <div className="mt-4 flex items-center justify-between gap-4">
-              {/* Audio player for merged result */}
+            {/* Audio player for merged result */}
+            <audio
+              ref={mergedAudioRef}
+              src={getAudioUrl(mergedResult.recording_id)}
+              onTimeUpdate={(e) => setPlaybackTimeMs(e.currentTarget.currentTime * 1000)}
+              onEnded={() => {
+                setIsPlayingMerged(false)
+                setPlaybackTimeMs(0)
+              }}
+            />
+
+            {/* Multi-Track Segmented Timeline Tape */}
+            <div className="mt-5 pt-4 border-t border-rule">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2 font-mono text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-ink-3">Playhead:</span>
+                  <span className="text-ink font-semibold tabular-nums">
+                    {formatMs(playbackTimeMs)} / {formatMs(mergedResult.duration_ms)}
+                  </span>
+                </div>
+                {currentSpeakerSegment && (
+                  <div className="flex items-center gap-1.5 text-ink text-xs font-sans">
+                    <span className="text-ink-3 text-[10px] font-mono uppercase">Current Speaker:</span>
+                    <span className="font-medium text-clay truncate max-w-[200px]">
+                      {currentSpeakerSegment.name}
+                    </span>
+                    <span className="text-ink-3 font-mono text-[10px]">
+                      ({formatMs(currentSpeakerSegment.start_ms)} – {formatMs(currentSpeakerSegment.end_ms)})
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Tape Bar */}
+              <div className="relative h-9 w-full bg-paper-2 rounded-[2px] border border-rule flex overflow-hidden select-none">
+                {displaySegments.map((seg, idx) => {
+                  const totalMs = Math.max(1, mergedResult.duration_ms)
+                  const widthPercent = (seg.duration_ms / totalMs) * 100
+                  const colorClass = SEGMENT_COLORS[idx % SEGMENT_COLORS.length]
+                  const isCurrent = currentSpeakerSegment === seg
+
+                  return (
+                    <button
+                      key={`${seg.name}-${idx}`}
+                      type="button"
+                      onClick={() => handleSeekToSegment(seg)}
+                      title={`Jump to ${seg.name} (${formatMs(seg.start_ms)} - ${formatMs(seg.end_ms)})`}
+                      style={{ width: `${widthPercent}%` }}
+                      className={`h-full relative group border-r border-paper/30 last:border-r-0 flex items-center justify-between px-2.5 text-left transition-all ${
+                        isCurrent ? 'ring-2 ring-inset ring-ink brightness-105' : 'hover:brightness-95'
+                      } ${colorClass}`}
+                    >
+                      <span className="font-sans text-[11px] font-medium truncate flex-1 leading-tight">
+                        {seg.name}
+                      </span>
+                      <span className="font-mono text-[9px] opacity-80 pl-1 shrink-0 tabular-nums">
+                        {(seg.duration_ms / 1000).toFixed(1)}s
+                      </span>
+                    </button>
+                  )
+                })}
+
+                {/* Real-time Playhead Cursor Hairline */}
+                <div
+                  className="absolute top-0 bottom-0 w-[2px] bg-paper shadow-sm pointer-events-none transition-all duration-75 z-10"
+                  style={{
+                    left: `${Math.min(100, (playbackTimeMs / Math.max(1, mergedResult.duration_ms)) * 100)}%`,
+                  }}
+                >
+                  <div className="h-1.5 w-1.5 bg-paper rotate-45 -ml-[2px] -mt-0.5 shadow-xs" />
+                </div>
+              </div>
+
+              {/* Segment Legend / Click-to-seek listing */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-mono text-ink-3 uppercase mr-1">Takes in sequence:</span>
+                {displaySegments.map((seg, idx) => {
+                  const colorClass = SEGMENT_COLORS[idx % SEGMENT_COLORS.length]
+                  const isCurrent = currentSpeakerSegment === seg
+
+                  return (
+                    <button
+                      key={`btn-${seg.name}-${idx}`}
+                      type="button"
+                      onClick={() => handleSeekToSegment(seg)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] border text-xs font-mono transition-all ${
+                        isCurrent
+                          ? 'border-ink bg-paper-2 text-ink shadow-xs'
+                          : 'border-rule bg-sheet text-ink-2 hover:border-ink-3 hover:text-ink'
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${colorClass.split(' ')[0]}`} />
+                      <span className="font-sans font-medium text-ink">{seg.name}</span>
+                      <span className="text-ink-3 text-[10px] tabular-nums">
+                        {formatMs(seg.start_ms)}–{formatMs(seg.end_ms)}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-rule flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <audio
-                  ref={mergedAudioRef}
-                  src={getAudioUrl(mergedResult.recording_id)}
-                  onEnded={() => setIsPlayingMerged(false)}
-                />
                 <button
                   type="button"
                   onClick={() => {
@@ -739,11 +978,18 @@ export const SessionPage: React.FC<SessionPageProps> = ({ onOpenVoiceStudio, onW
                       }
                     }
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-moss text-paper hover:opacity-95 btn-press"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-moss text-paper hover:opacity-95 btn-press shadow-xs"
                 >
                   {isPlayingMerged ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" className="ml-0.5" />}
                 </button>
-                <span className="font-sans text-xs text-ink">Preview master take</span>
+                <div>
+                  <div className="font-sans text-xs font-medium text-ink">
+                    {isPlayingMerged ? 'Playing master mix…' : 'Play master take'}
+                  </div>
+                  <div className="font-mono text-[10px] text-ink-3">
+                    Click segments above to scrub directly to speaker
+                  </div>
+                </div>
               </div>
 
               {/* Link to view in Voice Studio */}
