@@ -7,6 +7,7 @@ defmodule TimbreWeb.Router do
 
   # Ops probes — unauthenticated, no `:accepts` plug so bare LB/k8s probes work.
   scope "/", TimbreWeb do
+    get "/", HealthController, :live
     get "/healthz", HealthController, :live
     get "/readyz", HealthController, :ready
   end

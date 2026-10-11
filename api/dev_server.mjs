@@ -132,10 +132,17 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // 1. Health checks
-  if (pathname === '/healthz' || pathname === '/readyz') {
+  // 1. Health checks and Root endpoint (for UptimeRobot and uptime monitors)
+  if (pathname === '/' || pathname === '/health' || pathname === '/healthz' || pathname === '/readyz') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ status: 'ok', service: 'timbre-dev-api', port: PORT }))
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        service: 'timbre-dev-api',
+        port: PORT,
+        message: 'Timbre Audio Studio Backend API is active',
+      })
+    )
     return
   }
 
