@@ -1,7 +1,7 @@
 # timbre — Field Recorder & Audio Studio
 
-> 🎙️ **Live Application:** **[timbre-studio.vercel.app](https://timbre-studio.vercel.app)** — In-browser recording, WASM DSP effects & multiplayer studio  
-> 📹 **Video Walkthrough:** **[Watch on YouTube (5-min Demo)](https://youtu.be/ecTUnFGKZMY)** — Architecture overview, DSP filters & multi-take overdubbing in action
+> **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
+> **Demo Video:** **[https://youtu.be/ecTUnFGKZMY](https://youtu.be/ecTUnFGKZMY)**
 
 A high-fidelity full-stack audio application built with **Elixir/Phoenix API + React + Rust/WASM**.
 
