@@ -1,16 +1,24 @@
 # timbre — Field Recorder & Audio Studio
 
+> 🎙️ **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
+> 📹 **Demo Video:** `[Add your Loom/Drive link here]`  
+> 🌿 **Submission Branch:** `main` (synced with the invited interview repository)
+
 A high-fidelity full-stack audio application built with **Elixir/Phoenix API + React + Rust/WASM**.
 
 Designed with the **“Field Recorder”** aesthetic: tactile, printed field notebook meets tape deck with warm paper tones, hairline rules, tabular numerals, 60fps LED ladder meters, and zero generic SaaS bloat.
 
 ---
 
-## 🚀 Live Demo & Deliverables
+## 📋 Deliverables Summary
 
-- **Live Application:** [https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)
-- **Demo Video:** `[Add your Loom/Drive link here if recorded]`
-- **Submission Branch:** `main` (pushed to the invited private repository)
+| Deliverable | Status | Description |
+|---|---|---|
+| **Part 1: Record & Save** | ✅ Complete | In-browser mic capture, cross-browser codec negotiation, waveform playback, persistent storage |
+| **Part 2: WASM DSP Effects** | ✅ Complete | Rust crate `timbre_kit` with 5 DSP filters, A/B buffer comparison, 16-bit WAV encoder |
+| **Part 3: Multiplayer Studio** | ✅ Complete | Phoenix Channels WebSockets, LED VU meters, Multi-Take overdub layering, master take WAV mixer |
+| **Bonus: AI Transcription** | ✅ Complete | Google Gemini 3.8 Flash multimodal audio transcription + stamped title & executive summary |
+| **Deployment** | ✅ Complete | Live on Vercel with IndexedDB client-side fallback + Dockerfile / Render / Fly.io backend support |
 
 ---
 
@@ -25,12 +33,12 @@ timbre/
 ├── web/                        Vite + React 19 + Tailwind 4 — :5173
 │   ├── src/components/         MicRecorder, WaveformMeter, RecordingsList, EffectPanel, TranscriptDrawer, Header
 │   ├── src/pages/              RecorderPage (Voice Studio), SessionPage (Multiplayer Stage)
-│   ├── src/lib/                audio-capture.ts, wasm-effects.ts, wav-encode.ts, socket.ts, api.ts
+│   ├── src/lib/                audio-capture.ts, wasm-effects.ts, wav-encode.ts, socket.ts, api.ts, idb.ts
 │   └── crates/timbre_kit/      Rust compiled to WebAssembly (wasm-pack)
 ├── Dockerfile                  Production multi-stage build (Rust WASM + Vite + Phoenix release)
+├── render.yaml                 Render blueprint for 1-click backend deployment
 ├── fly.toml                    Fly.io deployment with persistent SQLite volume
-├── vercel.json                 Vercel frontend deployment configuration
-└── FRONTEND_PLAN.md            Complete Field Recorder design system specifications
+└── vercel.json                 Vercel frontend deployment configuration
 ```
 
 ---
@@ -42,6 +50,7 @@ timbre/
 - **Firefox Fix:** Uses native `AudioContext` without forcing sample rate (preventing Firefox crash) and passes hardware `sample_rate` as metadata.
 - **Upload Limit Raised:** Configured `Plug.Parsers length: 200_000_000` (200MB), preventing the default 8MB / 80s upload cutoff.
 - **Accurate Playback:** Uses backend-stored `duration_ms` so custom scrubbers and timelines work accurately regardless of missing container headers.
+- **Dual Persistence:** Automatically uses server API when available, and smoothly falls back to browser **IndexedDB** on static hosts like Vercel.
 
 ### Part 2: WASM DSP Effects Lab
 - **Rust Audio Engine (`timbre_kit`):**
@@ -49,21 +58,23 @@ timbre/
   2. `normalize(samples, target_db)`: Peak scaling to target dBFS (e.g. -1.0 dBFS) with silence guard.
   3. `to_mono(samples, channels)`: Multichannel interleaved downmix into balanced mono.
   4. `noise_gate(samples, threshold_db, window_size, attack, release)`: Sliding-window RMS threshold gate with window-based smoothing.
-  5. `anonymize_voice(samples, semitones, sample_rate)`: Pitch-shifting via linear interpolation resampling.
+  5. `anonymize_voice(samples, semitones, sample_rate)`: Pitch-shifting via linear interpolation resampling (Advanced Bonus).
 - **A/B Comparison Player:** Instant live audio buffer swap during playback preserving playback position, dual stacked 56px canvases, and shared clay playhead.
 - **Client-Side WAV Encoder (`wav-encode.ts`):** Converts processed `Float32Array` PCM into standard 16-bit WAV blobs to save back to the API.
 
-### Bonus: AI Transcription & Summarization (Gemini Multimodal)
-- **Supervised Task:** Managed by `Timbre.TranscriptionSupervisor` in OTP supervision tree.
-- **Single-Call Efficiency:** Transcribes and generates an 8-word title + 2-3 sentence executive summary in a single Gemini 1.5 Flash request with `response_mime_type: "application/json"`.
-- **Sequential Line Drawing:** Custom ruled-paper line drawing animation during processing (no generic shimmer skeletons).
-- **One-Click Copy:** Verbatim transcript box with clipboard copy button.
-
-### Part 3: Multiplayer Sessions & Master Merge
+### Part 3: Multiplayer Sessions & Multi-Take Master Merge
 - **Phoenix Channels:** Real-time WebSockets mounted at `/socket` (`session:<id>`).
 - **Low-Latency Worklet Streaming:** `web/public/pcm-processor.js` batches 4096-sample `Int16Array` frames (~85ms) on a dedicated audio rendering thread.
 - **No Acoustic Loopback:** Audio streams only to the server. Participants receive live volume level signals to power 16-segment VU meters without feedback loops.
-- **Timing Alignment & Clamping:** Server-side `Timbre.Sessions` GenServer records participant `start_ts` and pads delay silence before mixing, while `Timbre.WavEncoder` clamps summed samples to eliminate clipping.
+- **Multiple Takes & Overdub Layering:** A single participant can record multiple passes (`Take 1`, `Take 2`, etc.), select takes from the hardware Takes Ribbon, or re-record specific takes.
+- **Timing Alignment & Clamping:** Server-side `Timbre.Sessions` GenServer records participant `start_ts` and pads delay silence before mixing, while `Timbre.WavEncoder` clamps summed samples to eliminate clipping. Overdub layers are synchronized so harmonies and backing tracks play together starting at `0:00`.
+
+### Bonus: AI Transcription & Summarization (Gemini Multimodal)
+- **Supervised Task:** Managed by `Timbre.TranscriptionSupervisor` in OTP supervision tree.
+- **Single-Call Efficiency:** Transcribes and generates an 8-word stamped title + executive summary in a single Gemini 3.8 Flash request with structured JSON output.
+- **Sequential Line Drawing:** Custom ruled-paper line drawing animation during processing (no generic shimmer skeletons).
+- **One-Click Copy:** Verbatim transcript box with clipboard copy button.
+- **Client-Side Fallback:** Supports direct client transcription via user-supplied API key when running on static hosting.
 
 ---
 
