@@ -1,23 +1,11 @@
 # timbre — Field Recorder & Audio Studio
 
-> **Live Application:** **[https://timbre-studio.vercel.app](https://timbre-studio.vercel.app)**  
-> **Demo Video:** **[https://youtu.be/ecTUnFGKZMY](https://youtu.be/ecTUnFGKZMY)**
+> 🎙️ **Live Application:** **[timbre-studio.vercel.app](https://timbre-studio.vercel.app)** — In-browser recording, WASM DSP effects & multiplayer studio  
+> 📹 **Video Walkthrough:** **[Watch on YouTube (5-min Demo)](https://youtu.be/ecTUnFGKZMY)** — Architecture overview, DSP filters & multi-take overdubbing in action
 
 A high-fidelity full-stack audio application built with **Elixir/Phoenix API + React + Rust/WASM**.
 
 Designed with the **“Field Recorder”** aesthetic: tactile, printed field notebook meets tape deck with warm paper tones, hairline rules, tabular numerals, 60fps LED ladder meters, and zero generic SaaS bloat.
-
----
-
-## Deliverables Summary
-
-| Deliverable | Status | Description |
-|---|---|---|
-| **Part 1: Record & Save** | Complete | In-browser mic capture, cross-browser codec negotiation, waveform playback, persistent storage |
-| **Part 2: WASM DSP Effects** | Complete | Rust crate `timbre_kit` with 5 DSP filters, A/B buffer comparison, 16-bit WAV encoder |
-| **Part 3: Multiplayer Studio** | Complete | Phoenix Channels WebSockets, LED VU meters, Multi-Take overdub layering, master take WAV mixer |
-| **Bonus: AI Transcription** | Complete | Google Gemini 3.8 Flash multimodal audio transcription + stamped title & executive summary |
-| **Deployment** | Complete | Live on Vercel with IndexedDB client-side fallback + Dockerfile / Render / Fly.io backend support |
 
 ---
 
@@ -42,38 +30,37 @@ timbre/
 
 ---
 
-## Features Implemented
+## Technical Highlights & Features
 
 ### Part 1: Record & Save Audio
-- **True Cross-Browser Parity:** Standardized codec negotiation prioritizing `audio/webm;codecs=opus` → `audio/ogg;codecs=opus` → fallback.
-- **Firefox Fix:** Uses native `AudioContext` without forcing sample rate (preventing Firefox crash) and passes hardware `sample_rate` as metadata.
-- **Upload Limit Raised:** Configured `Plug.Parsers length: 200_000_000` (200MB), preventing the default 8MB / 80s upload cutoff.
-- **Accurate Playback:** Uses backend-stored `duration_ms` so custom scrubbers and timelines work accurately regardless of missing container headers.
-- **Dual Persistence:** Automatically uses server API when available, and smoothly falls back to browser **IndexedDB** on static hosts like Vercel.
+- **Cross-Browser Audio Capture:** Standardized codec negotiation prioritizing `audio/webm;codecs=opus` → `audio/ogg;codecs=opus` with container metadata preservation.
+- **Hardware-Aware Audio Context:** Uses native browser `AudioContext` without forcing sample rate (preventing Firefox audio context panics) while passing hardware `sample_rate` as metadata.
+- **High-Capacity Ingestion:** Raised `Plug.Parsers` body limit to 200MB, eliminating the standard 8MB / 80-second upload cutoff for extended sessions.
+- **Accurate Waveform Scrubbing:** Custom scrubbers and canvas renderers rely on server-computed `duration_ms` rather than imprecise browser container headers.
+- **Resilient Dual Storage:** Persists to the Phoenix API + SQLite database when connected, with transparent fallback to browser **IndexedDB** on static hosting.
 
-### Part 2: WASM DSP Effects Lab
-- **Rust Audio Engine (`timbre_kit`):**
+### Part 2: Rust/WASM DSP Audio Engine (`timbre_kit`)
+- **WebAssembly DSP Pipeline:** High-performance, zero-garbage-collection audio processing routines:
   1. `apply_gain(samples, gain_db)`: Volume adjustment with strict `[-1.0, 1.0]` sample clamping.
-  2. `normalize(samples, target_db)`: Peak scaling to target dBFS (e.g. -1.0 dBFS) with silence guard.
-  3. `to_mono(samples, channels)`: Multichannel interleaved downmix into balanced mono.
+  2. `normalize(samples, target_db)`: Peak scaling to target dBFS with silence-floor guards.
+  3. `to_mono(samples, channels)`: Interleaved multichannel downmixing to balanced mono.
   4. `noise_gate(samples, threshold_db, window_size, attack, release)`: Sliding-window RMS threshold gate with window-based smoothing.
-  5. `anonymize_voice(samples, semitones, sample_rate)`: Pitch-shifting via linear interpolation resampling (Advanced Bonus).
-- **A/B Comparison Player:** Instant live audio buffer swap during playback preserving playback position, dual stacked 56px canvases, and shared clay playhead.
-- **Client-Side WAV Encoder (`wav-encode.ts`):** Converts processed `Float32Array` PCM into standard 16-bit WAV blobs to save back to the API.
+  5. `anonymize_voice(samples, semitones, sample_rate)`: Formant/pitch modulation via linear interpolation resampling.
+- **Seamless A/B Comparison Player:** Instant audio buffer swap during playback preserving real-time playhead position across stacked 56px canvas waveforms.
+- **Client-Side WAV Encoder (`wav-encode.ts`):** Converts processed `Float32Array` PCM into standardized 16-bit WAV containers for persistent storage.
 
-### Part 3: Multiplayer Sessions & Multi-Take Master Merge
-- **Phoenix Channels:** Real-time WebSockets mounted at `/socket` (`session:<id>`).
-- **Low-Latency Worklet Streaming:** `web/public/pcm-processor.js` batches 4096-sample `Int16Array` frames (~85ms) on a dedicated audio rendering thread.
-- **No Acoustic Loopback:** Audio streams only to the server. Participants receive live volume level signals to power 16-segment VU meters without feedback loops.
-- **Multiple Takes & Overdub Layering:** A single participant can record multiple passes (`Take 1`, `Take 2`, etc.), select takes from the hardware Takes Ribbon, or re-record specific takes.
-- **Timing Alignment & Clamping:** Server-side `Timbre.Sessions` GenServer records participant `start_ts` and pads delay silence before mixing, while `Timbre.WavEncoder` clamps summed samples to eliminate clipping. Overdub layers are synchronized so harmonies and backing tracks play together starting at `0:00`.
+### Part 3: Multiplayer Sessions & Multi-Take Studio
+- **Phoenix Channels Real-Time Fabric:** Real-time WebSockets mounted at `/socket` (`session:<id>`) managing presence and room state.
+- **Low-Latency Audio Worklet:** `pcm-processor.js` batches 4096-sample `Int16Array` frames (~85ms) on a dedicated audio thread, keeping the UI at 60fps.
+- **Feedback-Free Monitoring:** Streams live PCM to the server mixer while broadcasting volume telemetry to peers to power 16-segment LED VU meters without acoustic feedback.
+- **Multi-Take Overdub Layering:** Musicians can record multiple synchronized passes (`Take 1`, `Take 2`, etc.), select takes from the Takes Ribbon, or punch-in re-records.
+- **Server-Side Sample Summing & Alignment:** `Timbre.Sessions` GenServer aligns timestamps, inserts silence padding for late joiners, and sums multi-track layers with soft-clipping protection via `Timbre.WavEncoder`.
 
 ### Bonus: AI Transcription & Summarization (Gemini Multimodal)
-- **Supervised Task:** Managed by `Timbre.TranscriptionSupervisor` in OTP supervision tree.
-- **Single-Call Efficiency:** Transcribes and generates an 8-word stamped title + executive summary in a single Gemini 3.8 Flash request with structured JSON output.
-- **Sequential Line Drawing:** Custom ruled-paper line drawing animation during processing (no generic shimmer skeletons).
-- **One-Click Copy:** Verbatim transcript box with clipboard copy button.
-- **Client-Side Fallback:** Supports direct client transcription via user-supplied API key when running on static hosting.
+- **Supervised Background Tasks:** Managed under OTP supervision tree (`Timbre.TranscriptionSupervisor`).
+- **Single-Shot Multimodal Analysis:** Generates an 8-word stamped title, executive summary, and verbatim transcript in a single Google Gemini request using structured JSON schemas.
+- **Sequential Line Drawing:** Custom ruled-paper line drawing animation during processing states.
+- **Dual-Mode Execution:** Server-side Gemini API execution with client-side key injection fallback for static deployments.
 
 ---
 
@@ -82,62 +69,74 @@ timbre/
 ### Prerequisites
 - Node.js 22+
 - Elixir 1.18+ & Erlang/OTP 27+
-- Rust & wasm-pack (if building WASM locally)
+- Rust & wasm-pack
+- `just` task runner (recommended)
+
+### Quickstart (with `just`)
 
 ```bash
-# 1. Install frontend dependencies and build
+# 1. Setup everything (compiles WASM, installs frontend & backend dependencies)
+just setup
+
+# 2. Start Phoenix API (:4010) and Vite frontend (:5173) concurrently
+just dev
+```
+
+### Manual Setup
+
+```bash
+# 1. Build WASM package & install web dependencies
 cd web
 npm install
-npm run typecheck
+npm run build:wasm
 
-# 2. Run backend (in a separate terminal)
-cd api
+# 2. Start Phoenix API (Terminal 1)
+cd ../api
 mix setup
 mix phx.server
 
-# 3. Run frontend
-cd web
+# 3. Start Frontend (Terminal 2)
+cd ../web
 npm run dev
 ```
 
-Visit **http://localhost:5173** to use the application.
+The application will be live at **http://localhost:5173** (proxies `/api` and `/socket` to `:4010`).
 
 ---
 
-## Deployment Guide
-
-### Option 1: Deploy Frontend on Vercel (Split Deployment)
-You can deploy the React frontend directly to **Vercel**:
-
-1. Import the repository into Vercel.
-2. Set **Root Directory** to `web` (or leave at root; `vercel.json` is configured for both).
-3. Under **Environment Variables**, add:
-   - `VITE_API_URL`: URL of your deployed Phoenix API (e.g. `https://timbre-api.fly.dev`)
-   - `VITE_WS_URL`: WebSocket URL of your deployed Phoenix API (e.g. `wss://timbre-api.fly.dev/socket`)
-4. Hit **Deploy**. The frontend will automatically route API and WebSocket traffic to your Phoenix backend.
-   *(CORS and WebSocket origins are already pre-configured to allow Vercel domains).*
-
-### Option 2: Deploy Full-Stack Single Container (Fly.io / Render / Docker)
-Because Phoenix and SQLite require persistent storage and long-running WebSocket processes, running the full stack in a single container is the most robust setup:
+## Testing & Quality
 
 ```bash
-# Deploy to Fly.io with a persistent SQLite volume
-fly launch
-fly volumes create timbre_data --size 1
-fly deploy
+# Run all suites (Rust + Elixir)
+just test
+
+# Run type checking & Elixir format checks
+just check
+
+# Or test individual components:
+cd web && npm run typecheck            # TypeScript typecheck
+cd api && mix test                     # Phoenix API / OTP tests
+cd web/crates/timbre_kit && cargo test # Rust DSP unit tests
 ```
 
 ---
 
-## Testing
+## Deployment
+
+### Option 1: Static Frontend (Vercel)
+The React client can run standalone on **Vercel** with client-side IndexedDB storage:
+1. Import repository into Vercel (Root Directory: `web` or repo root; `vercel.json` handles both).
+2. Set environment variables (optional, to connect a live Phoenix backend):
+   - `VITE_API_URL`: Backend URL (e.g. `https://timbre-api.fly.dev`)
+   - `VITE_WS_URL`: WebSocket URL (e.g. `wss://timbre-api.fly.dev/socket`)
+3. Deploy.
+
+### Option 2: Full-Stack Container (Fly.io / Render / Docker)
+Because Phoenix Channels and SQLite benefit from persistent storage and persistent WebSocket processes, single-container deployment is supported via the root `Dockerfile`:
 
 ```bash
-# Run web typecheck
-cd web && npm run typecheck
-
-# Run Elixir test suite
-cd api && mix test
-
-# Run Rust DSP unit tests
-cd web/crates/timbre_kit && cargo test
+# Deploy to Fly.io with a persistent volume for SQLite
+fly launch
+fly volumes create timbre_data --size 1
+fly deploy
 ```
