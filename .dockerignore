@@ -1,0 +1,8 @@
+node_modules/
+web/
+api/.tmp/
+.git/
+.gitignore
+.env
+.envrc
+scratch/
